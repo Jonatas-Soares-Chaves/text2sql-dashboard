@@ -16,9 +16,6 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 from config.settings import get_settings
 from db.connection import get_engine, get_schema_description
 
-
-# ── DTOs ─────────────────────────────────────────────────────
-
 @dataclass
 class QueryResult:
     """Resultado completo de uma query Text-to-SQL."""
@@ -40,9 +37,6 @@ class ValidationResult:
     valid: bool
     error: str | None = None
     cleaned_sql: str | None = None
-
-
-# ── Cache simples em memória ──────────────────────────────────
 
 class _QueryCache:
     """LRU-like cache para evitar chamadas repetidas ao LLM."""
@@ -73,9 +67,6 @@ class _QueryCache:
 
 
 _cache = _QueryCache()
-
-
-# ── Prompt Engineering ────────────────────────────────────────
 
 def _build_system_prompt() -> str:
     schema = get_schema_description()
@@ -140,9 +131,6 @@ Responda a pergunta do usuário em português, de forma clara e direta, citando 
 Use formatação com R$ para valores monetários brasileiros. Seja conciso (máx 3 parágrafos).
 Se o resultado estiver vazio, diga isso claramente."""
 
-
-# ── Validação de Segurança ────────────────────────────────────
-
 def validate_sql(sql: str) -> ValidationResult:
     """
     Validação em duas camadas:
@@ -151,7 +139,6 @@ def validate_sql(sql: str) -> ValidationResult:
     """
     settings = get_settings()
 
-    # Normaliza: remove comentários e whitespace excessivo
     cleaned = sqlparse.format(
         sql.strip(),
         strip_comments=True,
@@ -162,7 +149,6 @@ def validate_sql(sql: str) -> ValidationResult:
     if not cleaned:
         return ValidationResult(valid=False, error="SQL vazio gerado pelo LLM")
 
-    # Garante que é um SELECT
     parsed = sqlparse.parse(cleaned)
     if not parsed:
         return ValidationResult(valid=False, error="SQL inválido — não foi possível parsear")
@@ -174,7 +160,6 @@ def validate_sql(sql: str) -> ValidationResult:
             error=f"Apenas SELECT é permitido. Tipo detectado: {stmt_type}"
         )
 
-    # Verifica palavras proibidas (case-insensitive)
     upper_sql = cleaned.upper()
     for keyword in settings.sql_blocked_keywords:
         if keyword in upper_sql.split():
@@ -182,15 +167,11 @@ def validate_sql(sql: str) -> ValidationResult:
                 valid=False,
                 error=f"Palavra-chave proibida detectada: {keyword}"
             )
-
-    # Garante LIMIT
+            
     if "LIMIT" not in upper_sql:
         cleaned += f"\nLIMIT {settings.sql_max_rows}"
 
     return ValidationResult(valid=True, cleaned_sql=cleaned)
-
-
-# ── LLM Client ───────────────────────────────────────────────
 
 def _get_llm() -> ChatGroq:
     settings = get_settings()
@@ -213,15 +194,12 @@ def _call_llm(messages: list) -> str:
     response = llm.invoke(messages)
     return response.content.strip()
 
-
-# ── Pipeline Principal ────────────────────────────────────────
-
 def generate_sql(question: str) -> tuple[str, bool]:
     """
     Converte pergunta em SQL usando o LLM.
     Retorna (sql, from_cache).
     """
-    # Verifica cache primeiro
+
     cached = _cache.get(question)
     if cached:
         logger.debug(f"Cache hit para: {question[:50]}...")
@@ -234,7 +212,6 @@ def generate_sql(question: str) -> tuple[str, bool]:
 
     raw_sql = _call_llm(messages)
 
-    # Remove possível markdown que o LLM inclua mesmo sendo instruído a não
     raw_sql = raw_sql.replace("```sql", "").replace("```", "").strip()
 
     _cache.set(question, raw_sql)
@@ -276,22 +253,19 @@ def ask(question: str) -> QueryResult:
     t0 = time.monotonic()
 
     try:
-        # 1. Gerar SQL
+
         raw_sql, from_cache = generate_sql(question)
         logger.debug(f"SQL gerado:\n{raw_sql}")
 
-        # 2. Validar
         validation = validate_sql(raw_sql)
         if not validation.valid:
             raise ValueError(f"SQL inválido: {validation.error}")
 
         clean_sql = validation.cleaned_sql
 
-        # 3. Executar
         df = execute_sql(clean_sql)
         logger.info(f"Query retornou {len(df)} linhas")
 
-        # 4. Gerar resposta em linguagem natural
         answer = generate_answer(question, clean_sql, df)
 
         elapsed_ms = int((time.monotonic() - t0) * 1000)
