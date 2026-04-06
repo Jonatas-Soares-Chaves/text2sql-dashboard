@@ -9,7 +9,6 @@
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.38-FF4B4B?style=flat&logo=streamlit&logoColor=white)](https://streamlit.io)
 [![Tests](https://img.shields.io/badge/Tests-pytest-brightgreen?style=flat&logo=pytest)](https://pytest.org)
 
-**[🚀 Ver Demo ao Vivo](SEU_LINK_HF_SPACES)**  ·  **[📖 Documentação](#arquitetura)**
 
 ---
 
