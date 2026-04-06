@@ -1,0 +1,42 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: text2sql_postgres
+    environment:
+      POSTGRES_DB: text2sql_db
+      POSTGRES_USER: text2sql
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-text2sql}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U text2sql"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: text2sql_app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://text2sql:${POSTGRES_PASSWORD:-text2sql}@postgres:5432/text2sql_db
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
+    env_file:
+      - .env
+    ports:
+      - "8501:8501"
+    volumes:
+      - .:/app
+    command: >
+      sh -c "python scripts/seed_database.py &&
+             streamlit run app/main.py --server.address=0.0.0.0"
+
+volumes:
+  postgres_data:
