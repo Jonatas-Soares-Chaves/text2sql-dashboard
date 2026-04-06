@@ -90,9 +90,9 @@ Múltiplas camadas independentes — o sistema **nunca executa DDL ou DML** mesm
 ## Início Rápido
 
 ```bash
-git clone https://github.com/SEU_USUARIO/text2sql-portfolio
+git clone https://github.com/Jonatas-Soares-Chaves/text2sql-portfolio
 cd text2sql-portfolio
-cp .env.example .env  # adicione GROQ_API_KEY
+cp .env.example .env
 
 docker compose up -d
 # Dashboard em http://localhost:8501
