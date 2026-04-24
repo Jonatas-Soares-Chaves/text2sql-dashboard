@@ -1,4 +1,4 @@
-# 🔍 Text-to-SQL · Análise de Dados por Linguagem Natural
+# Text-to-SQL · Análise de Dados por Linguagem Natural
 
 > Converse com seu banco de dados em português. Sem SQL. Sem dashboards pré-definidos.
 
